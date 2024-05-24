@@ -1,51 +1,258 @@
 use clap::Parser;
+use rand::seq::SliceRandom;
+use std::io;
 
 #[derive(Parser, Debug)]
 pub struct CommandArgs {
     ///Width of maze
-    pub width : usize,
+    pub width: usize,
 
     ///height of maze
-    pub height : usize,
+    pub height: usize,
 
     ///path of output png
-    #[arg(long, default_value="./out.png")]
-    pub path_out : Option<String>
+    #[arg(long, default_value = "./out.png")]
+    pub path_out: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum LinkType {
     Path,
-    Wall
+    Wall,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+enum Direction {
+    Up,
+    Right,
+    Down,
+    Left,
+    Blank,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 struct Cell {
     top: LinkType,
     right: LinkType,
-    bottom : LinkType,
-    left : LinkType,
-    in_maze : bool
+    bottom: LinkType,
+    left: LinkType,
+    direction: Direction,
+    in_maze: bool,
 }
 
 #[derive(Debug)]
 pub struct Maze {
-    data : Vec<Vec<Cell>>,
-    width : usize,
-    height : usize
+    data: Vec<Vec<Cell>>,
+    width: usize,
+    height: usize,
 }
 
 impl Maze {
-    pub fn new(width : usize, height : usize) -> Maze{
+    pub fn new(width: usize, height: usize) -> Maze {
+        let base_cell = Cell {
+            top: LinkType::Wall,
+            right: LinkType::Wall,
+            bottom: LinkType::Wall,
+            left: LinkType::Wall,
+            in_maze: false,
+            direction: Direction::Blank,
+        };
+
         Maze {
             width: width,
-            height : height,
-            data : vec![vec![Cell {top : LinkType::Wall, right : LinkType::Wall, bottom : LinkType::Wall, left: LinkType::Wall, in_maze: false};width]; height]
+            height: height,
+            data: vec![vec![base_cell; width]; height],
         }
     }
 
-    pub fn generate(&mut self) {
-        
+    pub fn generate(&mut self) -> Result<(), io::Error> {
+        let mut remaining = self.width * self.height - 1;
+        self.data[0][0].in_maze = true;
+        let mut curr_x: usize = 1;
+        let mut curr_y: usize = 0;
+        while remaining > 0 {
+            while self.data[curr_y][curr_x].in_maze {
+                if curr_x < self.width - 1 {
+                    curr_x += 1;
+                } else {
+                    curr_x = 0;
+                    curr_y += 1;
+                    if curr_y > self.height - 1 {
+                        return Err(io::Error::new(io::ErrorKind::Other, "Exceeded maze range"));
+                    }
+                }
+            }
+            self.random_walk(curr_x, curr_y)?;
+
+            let count = self.follow_path(curr_x, curr_y)?;
+
+            remaining -= count;
+        }
+        Ok(())
+    }
+
+    fn get_directions_possible(&self, x: usize, y: usize) -> Vec<Direction> {
+        let mut vec: Vec<Direction> = Vec::new();
+
+        if x > 0 {
+            vec.push(Direction::Left);
+        }
+
+        if y > 0 {
+            vec.push(Direction::Up);
+        }
+
+        if x < self.width - 1 {
+            vec.push(Direction::Right);
+        }
+
+        if y < self.height - 1 {
+            vec.push(Direction::Down);
+        }
+
+        vec
+    }
+
+    fn random_walk(&mut self, start_x: usize, start_y: usize) -> Result<(), io::Error> {
+        let mut current_x = start_x;
+        let mut current_y = start_y;
+
+        while !self.data[current_y][current_x].in_maze {
+            let possible_directions = self.get_directions_possible(current_x, current_y);
+            let rand_dir = possible_directions.choose(&mut rand::thread_rng()).unwrap();
+
+            self.data[current_y][current_x].direction = rand_dir.clone();
+
+            match rand_dir {
+                Direction::Down => {
+                    current_y += 1;
+                }
+
+                Direction::Up => {
+                    current_y -= 1;
+                }
+
+                Direction::Left => {
+                    current_x -= 1;
+                }
+
+                Direction::Right => {
+                    current_x += 1;
+                }
+
+                Direction::Blank => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "No direction available",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn follow_path(&mut self, start_x: usize, start_y: usize) -> Result<usize, io::Error> {
+        let mut current_x = start_x;
+        let mut current_y = start_y;
+        let mut count: usize = 0;
+
+        while !self.data[current_y][current_x].in_maze {
+            match self.data[current_y][current_x].direction {
+                Direction::Up => {
+                    self.data[current_y][current_x].in_maze = true;
+                    self.data[current_y][current_x].top = LinkType::Path;
+                    current_y -= 1;
+                    self.data[current_y][current_x].bottom = LinkType::Path;
+                }
+
+                Direction::Down => {
+                    self.data[current_y][current_x].in_maze = true;
+                    self.data[current_y][current_x].bottom = LinkType::Path;
+                    current_y += 1;
+                    self.data[current_y][current_x].top = LinkType::Path;
+                }
+
+                Direction::Left => {
+                    self.data[current_y][current_x].in_maze = true;
+                    self.data[current_y][current_x].left = LinkType::Path;
+                    current_x -= 1;
+                    self.data[current_y][current_x].right = LinkType::Path;
+                }
+
+                Direction::Right => {
+                    self.data[current_y][current_x].in_maze = true;
+                    self.data[current_y][current_x].right = LinkType::Path;
+                    current_x += 1;
+                    self.data[current_y][current_x].left = LinkType::Path;
+                }
+
+                Direction::Blank => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "No direction available",
+                    ));
+                }
+            }
+            count += 1;
+        }
+
+        Ok(count)
+    }
+
+    fn print_to_console(&self) {
+        let mut lines: Vec<Vec<char>> = vec![vec![]; self.height * 3];
+        for y in (0..self.height) {
+            for x in (0..self.height) {
+                //TODO : column and line 2 by 2 per cell
+            }
+        }
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn test_get_directions() {
+        let maze = Maze::new(4, 4);
+        let dir1 = maze.get_directions_possible(0, 0);
+        assert_eq!(dir1, vec![Direction::Right, Direction::Down]);
+
+        let dir2 = maze.get_directions_possible(3, 3);
+        assert_eq!(dir2, vec![Direction::Left, Direction::Up]);
+
+        let dir3 = maze.get_directions_possible(1, 2);
+        assert_eq!(
+            dir3,
+            vec![
+                Direction::Left,
+                Direction::Up,
+                Direction::Right,
+                Direction::Down
+            ]
+        );
+    }
+
+    #[test]
+    pub fn test_follow_path() {
+        let mut maze = Maze::new(4, 4);
+        maze.data[1][1].direction = Direction::Right;
+        maze.data[1][2].direction = Direction::Down;
+        maze.data[2][1].direction = Direction::Up;
+        maze.data[2][2].direction = Direction::Left;
+        assert_eq!(maze.follow_path(1, 1).unwrap(), 4);
+        assert!(
+            maze.data[1][1].bottom == LinkType::Path && maze.data[1][1].right == LinkType::Path
+        );
+        assert!(maze.data[1][2].left == LinkType::Path && maze.data[1][2].bottom == LinkType::Path);
+        assert!(maze.data[2][1].right == LinkType::Path && maze.data[2][1].top == LinkType::Path);
+        assert!(maze.data[2][2].left == LinkType::Path && maze.data[2][2].top == LinkType::Path);
+    }
+
+    #[test]
+    pub fn test_generate_without_error() {
+        let mut maze = Maze::new(40, 40);
+        assert!(maze.generate().is_ok());
+    }
+}
