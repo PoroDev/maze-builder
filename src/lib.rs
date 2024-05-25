@@ -1,5 +1,6 @@
 use clap::Parser;
 use maze_image_builder::ConfigArray;
+use std::process::exit;
 
 mod maze;
 mod maze_image_builder;
@@ -34,6 +35,7 @@ pub fn main_run() {
     }
     if config.console_print {
         maze.print_to_console();
+        exit(0);
     }
 
     let config_array = ConfigArray {
