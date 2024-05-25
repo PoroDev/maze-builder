@@ -1,6 +1,8 @@
 use clap::Parser;
-use rand::seq::SliceRandom;
-use std::io;
+use maze_image_builder::ConfigArray;
+
+mod maze;
+mod maze_image_builder;
 
 #[derive(Parser, Debug)]
 pub struct CommandArgs {
@@ -12,247 +14,34 @@ pub struct CommandArgs {
 
     ///path of output png
     #[arg(long, default_value = "./out.png")]
-    pub path_out: Option<String>,
+    pub path_out: String,
+
+    #[arg(long, action)]
+    pub console_print: bool,
+
+    #[arg(long, default_value = "10")]
+    pub cell_width: u32,
+
+    #[arg(long, default_value = "10")]
+    pub cell_height: u32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-enum LinkType {
-    Path,
-    Wall,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum Direction {
-    Up,
-    Right,
-    Down,
-    Left,
-    Blank,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct Cell {
-    top: LinkType,
-    right: LinkType,
-    bottom: LinkType,
-    left: LinkType,
-    direction: Direction,
-    in_maze: bool,
-}
-
-#[derive(Debug)]
-pub struct Maze {
-    data: Vec<Vec<Cell>>,
-    width: usize,
-    height: usize,
-}
-
-impl Maze {
-    pub fn new(width: usize, height: usize) -> Maze {
-        let base_cell = Cell {
-            top: LinkType::Wall,
-            right: LinkType::Wall,
-            bottom: LinkType::Wall,
-            left: LinkType::Wall,
-            in_maze: false,
-            direction: Direction::Blank,
-        };
-
-        Maze {
-            width: width,
-            height: height,
-            data: vec![vec![base_cell; width]; height],
-        }
+pub fn main_run() {
+    let config = CommandArgs::parse();
+    let mut maze = maze::Maze::new(config.width, config.height);
+    if let Err(e) = maze.generate() {
+        panic!("Error : {}", e.to_string());
+    }
+    if config.console_print {
+        maze.print_to_console();
     }
 
-    pub fn generate(&mut self) -> Result<(), io::Error> {
-        let mut remaining = self.width * self.height - 1;
-        self.data[0][0].in_maze = true;
-        let mut curr_x: usize = 1;
-        let mut curr_y: usize = 0;
-        while remaining > 0 {
-            while self.data[curr_y][curr_x].in_maze {
-                if curr_x < self.width - 1 {
-                    curr_x += 1;
-                } else {
-                    curr_x = 0;
-                    curr_y += 1;
-                    if curr_y > self.height - 1 {
-                        return Err(io::Error::new(io::ErrorKind::Other, "Exceeded maze range"));
-                    }
-                }
-            }
-            self.random_walk(curr_x, curr_y)?;
+    let config_array = ConfigArray {
+        cell_width: config.cell_width,
+        cell_height: config.cell_height,
+    };
 
-            let count = self.follow_path(curr_x, curr_y)?;
-
-            remaining -= count;
-        }
-        Ok(())
-    }
-
-    fn get_directions_possible(&self, x: usize, y: usize) -> Vec<Direction> {
-        let mut vec: Vec<Direction> = Vec::new();
-
-        if x > 0 {
-            vec.push(Direction::Left);
-        }
-
-        if y > 0 {
-            vec.push(Direction::Up);
-        }
-
-        if x < self.width - 1 {
-            vec.push(Direction::Right);
-        }
-
-        if y < self.height - 1 {
-            vec.push(Direction::Down);
-        }
-
-        vec
-    }
-
-    fn random_walk(&mut self, start_x: usize, start_y: usize) -> Result<(), io::Error> {
-        let mut current_x = start_x;
-        let mut current_y = start_y;
-
-        while !self.data[current_y][current_x].in_maze {
-            let possible_directions = self.get_directions_possible(current_x, current_y);
-            let rand_dir = possible_directions.choose(&mut rand::thread_rng()).unwrap();
-
-            self.data[current_y][current_x].direction = rand_dir.clone();
-
-            match rand_dir {
-                Direction::Down => {
-                    current_y += 1;
-                }
-
-                Direction::Up => {
-                    current_y -= 1;
-                }
-
-                Direction::Left => {
-                    current_x -= 1;
-                }
-
-                Direction::Right => {
-                    current_x += 1;
-                }
-
-                Direction::Blank => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "No direction available",
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn follow_path(&mut self, start_x: usize, start_y: usize) -> Result<usize, io::Error> {
-        let mut current_x = start_x;
-        let mut current_y = start_y;
-        let mut count: usize = 0;
-
-        while !self.data[current_y][current_x].in_maze {
-            match self.data[current_y][current_x].direction {
-                Direction::Up => {
-                    self.data[current_y][current_x].in_maze = true;
-                    self.data[current_y][current_x].top = LinkType::Path;
-                    current_y -= 1;
-                    self.data[current_y][current_x].bottom = LinkType::Path;
-                }
-
-                Direction::Down => {
-                    self.data[current_y][current_x].in_maze = true;
-                    self.data[current_y][current_x].bottom = LinkType::Path;
-                    current_y += 1;
-                    self.data[current_y][current_x].top = LinkType::Path;
-                }
-
-                Direction::Left => {
-                    self.data[current_y][current_x].in_maze = true;
-                    self.data[current_y][current_x].left = LinkType::Path;
-                    current_x -= 1;
-                    self.data[current_y][current_x].right = LinkType::Path;
-                }
-
-                Direction::Right => {
-                    self.data[current_y][current_x].in_maze = true;
-                    self.data[current_y][current_x].right = LinkType::Path;
-                    current_x += 1;
-                    self.data[current_y][current_x].left = LinkType::Path;
-                }
-
-                Direction::Blank => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "No direction available",
-                    ));
-                }
-            }
-            count += 1;
-        }
-
-        Ok(count)
-    }
-
-    fn print_to_console(&self) {
-        let mut lines: Vec<Vec<char>> = vec![vec![]; self.height * 3];
-        for y in (0..self.height) {
-            for x in (0..self.height) {
-                //TODO : column and line 2 by 2 per cell
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    pub fn test_get_directions() {
-        let maze = Maze::new(4, 4);
-        let dir1 = maze.get_directions_possible(0, 0);
-        assert_eq!(dir1, vec![Direction::Right, Direction::Down]);
-
-        let dir2 = maze.get_directions_possible(3, 3);
-        assert_eq!(dir2, vec![Direction::Left, Direction::Up]);
-
-        let dir3 = maze.get_directions_possible(1, 2);
-        assert_eq!(
-            dir3,
-            vec![
-                Direction::Left,
-                Direction::Up,
-                Direction::Right,
-                Direction::Down
-            ]
-        );
-    }
-
-    #[test]
-    pub fn test_follow_path() {
-        let mut maze = Maze::new(4, 4);
-        maze.data[1][1].direction = Direction::Right;
-        maze.data[1][2].direction = Direction::Down;
-        maze.data[2][1].direction = Direction::Up;
-        maze.data[2][2].direction = Direction::Left;
-        assert_eq!(maze.follow_path(1, 1).unwrap(), 4);
-        assert!(
-            maze.data[1][1].bottom == LinkType::Path && maze.data[1][1].right == LinkType::Path
-        );
-        assert!(maze.data[1][2].left == LinkType::Path && maze.data[1][2].bottom == LinkType::Path);
-        assert!(maze.data[2][1].right == LinkType::Path && maze.data[2][1].top == LinkType::Path);
-        assert!(maze.data[2][2].left == LinkType::Path && maze.data[2][2].top == LinkType::Path);
-    }
-
-    #[test]
-    pub fn test_generate_without_error() {
-        let mut maze = Maze::new(40, 40);
-        assert!(maze.generate().is_ok());
-    }
+    let mut image_builder = maze_image_builder::MazeImageBuilder::new(config_array, &maze);
+    let image = image_builder.build_image();
+    image.save(config.path_out).expect("Can't save file");
 }
