@@ -1,8 +1,10 @@
 use clap::Parser;
+use maze::MazeBuilder;
 use maze_image_builder::ConfigArray;
 use std::process::exit;
 
 mod maze;
+mod maze_generator;
 mod maze_image_builder;
 
 #[derive(Parser, Debug)]
@@ -29,10 +31,11 @@ pub struct CommandArgs {
 
 pub fn main_run() {
     let config = CommandArgs::parse();
-    let mut maze = maze::Maze::new(config.width, config.height);
-    if let Err(e) = maze.generate() {
-        panic!("Error : {}", e.to_string());
-    }
+    let maze = MazeBuilder::<maze_generator::wilson::WilsonGenerator>::generate(
+        config.width,
+        config.height,
+    )
+    .unwrap();
     if config.console_print {
         maze.print_to_console();
         exit(0);
