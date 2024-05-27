@@ -28,8 +28,10 @@ pub struct Cell {
 #[derive(Debug)]
 pub struct Maze {
     data: Vec<Vec<Cell>>,
-    pub width: usize,
-    pub height: usize,
+    width: usize,
+    height: usize,
+    start_point: Coords,
+    end_point: Coords,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -135,6 +137,26 @@ impl Maze {
 
         ret_vec
     }
+
+    pub fn get_dimensions(&self) -> (usize, usize) {
+        (self.width, self.height)
+    }
+
+    pub fn get_width(&self) -> usize {
+        self.width
+    }
+
+    pub fn get_height(&self) -> usize {
+        self.height
+    }
+
+    pub fn get_start_point(&self) -> &Coords {
+        &self.start_point
+    }
+
+    pub fn get_end_point(&self) -> &Coords {
+        &self.end_point
+    }
 }
 
 pub struct MazeBuilder {
@@ -161,6 +183,11 @@ impl MazeBuilder {
             width: width,
             height: height,
             data: vec![vec![base_cell; width]; height],
+            start_point: Coords { x: 0, y: 0 },
+            end_point: Coords {
+                x: width - 1,
+                y: height - 1,
+            },
         };
 
         self.generator.generate(&mut maze)?;

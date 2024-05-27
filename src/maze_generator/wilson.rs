@@ -6,17 +6,18 @@ pub struct WilsonGenerator;
 
 impl MazeGenerator for WilsonGenerator {
     fn generate(&self, maze: &mut Maze) -> Result<(), io::Error> {
-        let mut remaining = maze.width * maze.height - 1;
+        let (width, height) = maze.get_dimensions();
+        let mut remaining = width * height - 1;
         maze.borrow_cell_mut(&Coords { x: 0, y: 0 }).in_maze = true;
         let mut curr_coords = Coords { x: 1, y: 0 };
         while remaining > 0 {
             while maze.borrow_cell(&curr_coords).in_maze {
-                if curr_coords.x < maze.width - 1 {
+                if curr_coords.x < width - 1 {
                     curr_coords.x += 1;
                 } else {
                     curr_coords.x = 0;
                     curr_coords.y += 1;
-                    if curr_coords.y > maze.height - 1 {
+                    if curr_coords.y > height - 1 {
                         return Err(io::Error::new(io::ErrorKind::Other, "Exceeded maze range"));
                     }
                 }

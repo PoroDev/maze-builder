@@ -23,8 +23,8 @@ impl<'a> MazeImageBuilder<'a> {
     }
 
     pub fn get_image_array_size(maze: &Maze, config: &ConfigArray) -> (u32, u32) {
-        let width_array = maze.width as u32 * (config.cell_width - 1) + 1;
-        let height_array = maze.height as u32 * (config.cell_height - 1) + 1;
+        let width_array = maze.get_width() as u32 * (config.cell_width - 1) + 1;
+        let height_array = maze.get_height() as u32 * (config.cell_height - 1) + 1;
 
         (width_array as u32, height_array as u32)
     }
@@ -72,8 +72,9 @@ impl<'a> MazeImageBuilder<'a> {
     }
 
     pub fn build_image(&mut self) -> &GrayImage {
-        for y in 0..self.maze.height {
-            for x in 0..self.maze.width {
+        let (width, height) = self.maze.get_dimensions();
+        for y in 0..height {
+            for x in 0..width {
                 self.draw_cell(x as u32, y as u32);
             }
         }
