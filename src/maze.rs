@@ -1,5 +1,4 @@
 use std::io;
-use std::marker::PhantomData;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LinkType {
@@ -33,27 +32,33 @@ pub struct Maze {
     pub height: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Coords {
+    pub x: usize,
+    pub y: usize,
+}
+
 pub trait MazeGenerator {
-    fn generate(maze: &mut Maze) -> Result<(), io::Error>;
+    fn generate(&self, maze: &mut Maze) -> Result<(), io::Error>;
 }
 
 impl Maze {
-    pub fn get_directions_possible(&self, x: usize, y: usize) -> Vec<Direction> {
+    pub fn get_directions_possible(&self, coords: &Coords) -> Vec<Direction> {
         let mut vec: Vec<Direction> = Vec::new();
 
-        if x > 0 {
+        if coords.x > 0 {
             vec.push(Direction::Left);
         }
 
-        if y > 0 {
+        if coords.y > 0 {
             vec.push(Direction::Up);
         }
 
-        if x < self.width - 1 {
+        if coords.x < self.width - 1 {
             vec.push(Direction::Right);
         }
 
-        if y < self.height - 1 {
+        if coords.y < self.height - 1 {
             vec.push(Direction::Down);
         }
 
@@ -89,24 +94,60 @@ impl Maze {
         }
     }
 
-    pub fn borrow_cell(&self, x: usize, y: usize) -> &Cell {
-        &self.data[y][x]
+    pub fn borrow_cell(&self, coords: &Coords) -> &Cell {
+        &self.data[coords.y][coords.x]
     }
 
-    pub fn borrow_cell_mut(&mut self, x: usize, y: usize) -> &mut Cell {
-        &mut self.data[y][x]
+    pub fn borrow_cell_mut(&mut self, coords: &Coords) -> &mut Cell {
+        &mut self.data[coords.y][coords.x]
+    }
+
+    pub fn get_possible_moves(&self, coords: Coords) -> Vec<Coords> {
+        let mut ret_vec = Vec::new();
+
+        if self.data[coords.y][coords.x].top == LinkType::Path {
+            ret_vec.push(Coords {
+                x: coords.x,
+                y: coords.y - 1,
+            });
+        }
+
+        if self.data[coords.y][coords.x].right == LinkType::Path {
+            ret_vec.push(Coords {
+                x: coords.x + 1,
+                y: coords.y,
+            });
+        }
+
+        if self.data[coords.y][coords.x].bottom == LinkType::Path {
+            ret_vec.push(Coords {
+                x: coords.x,
+                y: coords.y + 1,
+            });
+        }
+
+        if self.data[coords.y][coords.x].right == LinkType::Path {
+            ret_vec.push(Coords {
+                x: coords.x + 1,
+                y: coords.y,
+            });
+        }
+
+        ret_vec
     }
 }
 
-pub struct MazeBuilder<T> {
-    generator_type: PhantomData<T>,
+pub struct MazeBuilder {
+    generator: Box<dyn MazeGenerator>,
 }
 
-impl<T> MazeBuilder<T>
-where
-    T: MazeGenerator,
-{
-    pub fn generate(width: usize, height: usize) -> Result<Maze, io::Error> {
+impl MazeBuilder {
+    pub fn from_generator(generator: Box<dyn MazeGenerator>) -> MazeBuilder {
+        MazeBuilder {
+            generator: generator,
+        }
+    }
+    pub fn generate(&self, width: usize, height: usize) -> Result<Maze, io::Error> {
         let base_cell = Cell {
             top: LinkType::Wall,
             right: LinkType::Wall,
@@ -122,7 +163,7 @@ where
             data: vec![vec![base_cell; width]; height],
         };
 
-        T::generate(&mut maze)?;
+        self.generator.generate(&mut maze)?;
         Ok(maze)
     }
 }

@@ -1,4 +1,4 @@
-use crate::maze::{self, Maze};
+use crate::maze::{self, Coords, Maze};
 use image::{GrayImage, Luma};
 
 pub struct ConfigArray {
@@ -35,8 +35,11 @@ impl<'a> MazeImageBuilder<'a> {
 
         let base_x = (width_cell - 1) * x;
         let base_y = (height_cell - 1) * y;
-
-        let cell = self.maze.borrow_cell(x as usize, y as usize);
+        let coords = Coords {
+            x: x as usize,
+            y: y as usize,
+        };
+        let cell = self.maze.borrow_cell(&coords);
         //draw top line
         if cell.top == maze::LinkType::Wall {
             for i in 0..width_cell {
