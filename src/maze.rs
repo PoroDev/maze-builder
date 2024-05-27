@@ -1,12 +1,13 @@
+use serde::{Deserialize, Serialize};
 use std::io;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum LinkType {
     Path,
     Wall,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     Up,
     Right,
@@ -15,7 +16,7 @@ pub enum Direction {
     Blank,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Cell {
     pub top: LinkType,
     pub right: LinkType,
@@ -25,7 +26,7 @@ pub struct Cell {
     pub in_maze: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Maze {
     data: Vec<Vec<Cell>>,
     width: usize,
@@ -34,7 +35,7 @@ pub struct Maze {
     end_point: Coords,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Coords {
     pub x: usize,
     pub y: usize,
@@ -104,7 +105,7 @@ impl Maze {
         &mut self.data[coords.y][coords.x]
     }
 
-    pub fn get_possible_moves(&self, coords: Coords) -> Vec<Coords> {
+    pub fn get_possible_moves(&self, coords: &Coords) -> Vec<Coords> {
         let mut ret_vec = Vec::new();
 
         if self.data[coords.y][coords.x].top == LinkType::Path {
@@ -128,9 +129,9 @@ impl Maze {
             });
         }
 
-        if self.data[coords.y][coords.x].right == LinkType::Path {
+        if self.data[coords.y][coords.x].left == LinkType::Path {
             ret_vec.push(Coords {
-                x: coords.x + 1,
+                x: coords.x - 1,
                 y: coords.y,
             });
         }

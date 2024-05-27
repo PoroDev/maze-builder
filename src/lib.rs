@@ -4,11 +4,14 @@ use maze_generator::wilson::WilsonGenerator;
 use maze_image_builder::ConfigArray;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
+use serde::Serialize;
+use std::fs;
 use std::process::exit;
 
 mod maze;
 mod maze_generator;
 mod maze_image_builder;
+mod solver;
 
 #[derive(Parser, Debug)]
 #[command(name = "Maze Generator")]
@@ -24,14 +27,21 @@ pub struct CommandArgs {
     #[arg(long, default_value = "./out.png")]
     pub path_out: String,
 
+    ///print to console instead of saving in a file
     #[arg(long, action)]
     pub console_print: bool,
 
+    ///set the desired cell width in pixels
     #[arg(long, default_value = "10")]
     pub cell_width: u32,
 
+    ///set the desired cell height in pixels
     #[arg(long, default_value = "10")]
     pub cell_height: u32,
+
+    ///Serialize maze struct into <SERIALIZE>.json and <SERIALIZE>_path.json
+    #[arg(long)]
+    pub serialize: Option<String>,
 
     #[arg(long)]
     wilson: bool,
@@ -74,6 +84,16 @@ pub fn main_run() {
     let maze = MazeBuilder::from_generator(generator)
         .generate(config.width, config.height)
         .unwrap();
+
+    if let Some(path_str) = config.serialize {
+        let serialized = serde_json::to_string(&maze).unwrap();
+        fs::write(format!("{path_str}.json",), serialized).expect("Failed to write file");
+
+        let path = solver::Solver::solve_maze(&maze).unwrap();
+        let serialized = serde_json::to_string(&path).unwrap();
+        fs::write(format!("{path_str}_path.json"), serialized).expect("Failed to write to file");
+    }
+
     if config.console_print {
         maze.print_to_console();
         exit(0);
