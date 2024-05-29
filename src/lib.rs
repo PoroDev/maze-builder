@@ -39,6 +39,10 @@ pub struct CommandArgs {
     #[arg(long, default_value = "10")]
     pub cell_height: u32,
 
+    ///Should print solution on maze
+    #[arg(long, action)]
+    pub solve: bool,
+
     ///Serialize maze struct into <SERIALIZE>.json and <SERIALIZE>_path.json
     #[arg(long)]
     pub serialize: Option<String>,
@@ -104,7 +108,8 @@ pub fn main_run() {
         cell_height: config.cell_height,
     };
 
-    let image_builder = maze_image_builder::MazeImageBuilder::new(config_array, &maze);
+    let mut image_builder = maze_image_builder::MazeImageBuilder::new(config_array, &maze);
+    image_builder.solve(config.solve);
     let image = image_builder.build_image();
     image.save(config.path_out).expect("Can't save file");
 }

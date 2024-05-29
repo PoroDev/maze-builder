@@ -12,7 +12,7 @@ pub enum SolverError {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Path {
-    data: Vec<Coords>,
+    pub data: Vec<Coords>,
 }
 
 pub fn solve_maze(maze: &Maze) -> Result<Path, SolverError> {

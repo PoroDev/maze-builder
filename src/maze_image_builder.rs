@@ -1,5 +1,6 @@
 use crate::image_drawer::GenericImageExt;
 use crate::maze::{self, Coords, Maze};
+use crate::solver;
 use image::{Rgb, RgbImage};
 
 pub struct ConfigArray {
@@ -37,7 +38,8 @@ impl<'a> MazeImageBuilder<'a> {
     pub fn draw_cell(&mut self, x: u32, y: u32) {
         let width_cell = self.config.cell_width;
         let height_cell = self.config.cell_height;
-
+        let thickness_horizontal = (((width_cell as f32) * 0.1).round() as u32).max(1);
+        let thickness_vertical = (((height_cell as f32) * 0.1).round() as u32).max(1);
         let base_x = (width_cell - 1) * x;
         let base_y = (height_cell - 1) * y;
         let end_x = base_x + width_cell - 1;
@@ -70,30 +72,40 @@ impl<'a> MazeImageBuilder<'a> {
         let cell = self.maze.borrow_cell(&coords);
         //draw top line
         if cell.top == maze::LinkType::Wall {
-            self.image
-                .draw_line(&top_left_corner, &top_right_corner, Rgb { 0: [0x00; 3] });
+            self.image.draw_line_with_thickness(
+                &top_left_corner,
+                &top_right_corner,
+                thickness_vertical,
+                Rgb { 0: [0x00; 3] },
+            );
         }
 
         //draw left line
         if cell.left == maze::LinkType::Wall {
-            self.image
-                .draw_line(&top_left_corner, &bottom_left_corner, Rgb { 0: [0x00; 3] });
+            self.image.draw_line_with_thickness(
+                &top_left_corner,
+                &bottom_left_corner,
+                thickness_horizontal,
+                Rgb { 0: [0x00; 3] },
+            );
         }
 
         //draw right line
         if cell.right == maze::LinkType::Wall {
-            self.image.draw_line(
+            self.image.draw_line_with_thickness(
                 &top_right_corner,
                 &bottom_right_corner,
+                thickness_horizontal,
                 Rgb { 0: [0x00; 3] },
             );
         }
 
         //draw bottom line
         if cell.bottom == maze::LinkType::Wall {
-            self.image.draw_line(
+            self.image.draw_line_with_thickness(
                 &bottom_left_corner,
                 &bottom_right_corner,
+                thickness_vertical,
                 Rgb { 0: [0x00; 3] },
             );
         }
@@ -101,6 +113,9 @@ impl<'a> MazeImageBuilder<'a> {
 
     pub fn build_image(mut self) -> RgbImage {
         self.draw_maze();
+        if self.solve {
+            self.draw_solution();
+        }
         self.image
     }
 
@@ -110,6 +125,39 @@ impl<'a> MazeImageBuilder<'a> {
             for x in 0..width {
                 self.draw_cell(x as u32, y as u32);
             }
+        }
+    }
+
+    fn draw_solution(&mut self) {
+        let path = solver::solve_maze(&self.maze).unwrap();
+        let width_cell = self.config.cell_width;
+        let height_cell = self.config.cell_height;
+        let thickness_horizontal = (((width_cell as f32) * 0.2).round() as u32).max(1);
+        let thickness_vertical = (((height_cell as f32) * 0.2).round() as u32).max(1);
+        let thickness = thickness_horizontal.max(thickness_vertical);
+        let color = Rgb([0xff, 0x00, 0x00]);
+
+        for i in 0..path.data.len() - 1 {
+            let coords_first = path.data.get(i).unwrap();
+            let coords_second = path.data.get(i + 1).unwrap();
+            let base_x0 = (width_cell - 1) * coords_first.x as u32 + (width_cell - 1) / 2;
+            let base_y0 = (height_cell - 1) * coords_first.y as u32 + (height_cell - 1) / 2;
+
+            let base_x1 = (width_cell - 1) * coords_second.x as u32 + (width_cell - 1) / 2;
+            let base_y1 = (height_cell - 1) * coords_second.y as u32 + (height_cell - 1) / 2;
+
+            let begin = Coords {
+                x: base_x0 as usize,
+                y: base_y0 as usize,
+            };
+
+            let end = Coords {
+                x: base_x1 as usize,
+                y: base_y1 as usize,
+            };
+
+            self.image
+                .draw_line_with_thickness(&begin, &end, thickness, color);
         }
     }
 
