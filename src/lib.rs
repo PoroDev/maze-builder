@@ -4,10 +4,10 @@ use maze_generator::wilson::WilsonGenerator;
 use maze_image_builder::ConfigArray;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
-use serde::Serialize;
 use std::fs;
 use std::process::exit;
 
+mod image_drawer;
 mod maze;
 mod maze_generator;
 mod maze_image_builder;
@@ -89,7 +89,7 @@ pub fn main_run() {
         let serialized = serde_json::to_string(&maze).unwrap();
         fs::write(format!("{path_str}.json",), serialized).expect("Failed to write file");
 
-        let path = solver::Solver::solve_maze(&maze).unwrap();
+        let path = solver::solve_maze(&maze).unwrap();
         let serialized = serde_json::to_string(&path).unwrap();
         fs::write(format!("{path_str}_path.json"), serialized).expect("Failed to write to file");
     }
@@ -104,7 +104,7 @@ pub fn main_run() {
         cell_height: config.cell_height,
     };
 
-    let mut image_builder = maze_image_builder::MazeImageBuilder::new(config_array, &maze);
+    let image_builder = maze_image_builder::MazeImageBuilder::new(config_array, &maze);
     let image = image_builder.build_image();
     image.save(config.path_out).expect("Can't save file");
 }
